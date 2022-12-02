@@ -13,7 +13,7 @@ import java.util.Set;
 public class Main {
     private static final Connection con;
     private static final String ruta = "src/main/resources/zonasBarriosCalles.csv";
-    private static final Set<Zona> zonaSet = new HashSet<>();
+    private static final Set<String> zonaSet = new HashSet<>();
     private static final Set<Barrio> barrioSet = new HashSet<>();
     private static final Set<Calle> calleSet = new HashSet<>();
 
@@ -36,8 +36,8 @@ public class Main {
 
         String sql = "insert into Zona values (?)";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
-            for (Zona zona : zonaSet) {
-                ps.setString(1, zona.getNombre());
+            for (String s : zonaSet) {
+                ps.setString(1, s);
                 ps.addBatch();
             }
             zonas = Arrays.stream(ps.executeBatch()).sum();
@@ -57,15 +57,26 @@ public class Main {
             throw new RuntimeException(e);
         }
 
-        sql = "insert into Calle values (?,?,?)";
+        sql = "insert into Calle values (?,?)";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             for (Calle calle : calleSet) {
                 ps.setString(1, calle.getNombre());
                 ps.setString(2, calle.getTipo());
-                ps.setString(3, calle.getBarrio());
                 ps.addBatch();
             }
             calles = Arrays.stream(ps.executeBatch()).sum();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        sql = "insert into Calle_Barrio values (?,?)";
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            for (Calle calle : calleSet) {
+                ps.setString(1, calle.getBarrio());
+                ps.setString(2, calle.getNombre());
+                ps.addBatch();
+            }
+            ps.executeBatch();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -77,12 +88,14 @@ public class Main {
 
     private static void eliminarDatos() {
         String sql = "delete from Calle";
-        String sql1 = "delete from Barrio";
-        String sql2 = "delete from Zona";
+        String sql1 = "delete from Calle_Barrio";
+        String sql2 = "delete from Barrio";
+        String sql3 = "delete from Zona";
         try (Statement s = con.createStatement()) {
             int calles = s.executeUpdate(sql);
-            int barrios = s.executeUpdate(sql1);
-            int zonas = s.executeUpdate(sql2);
+            s.executeUpdate(sql1);
+            int barrios = s.executeUpdate(sql2);
+            int zonas = s.executeUpdate(sql3);
 
             System.out.println("Se han eliminado " + calles + " calles");
             System.out.println("Se han eliminado " + barrios + " barrios");
@@ -111,8 +124,7 @@ public class Main {
                 String tipo = datos[3];
                 String calle = datos[4];
 
-                Zona z = new Zona(zona);
-                zonaSet.add(z);
+                zonaSet.add(zona);
                 Barrio b = new Barrio(barrio, zona);
                 barrioSet.add(b);
                 Calle c = new Calle(calle, tipo, barrio);
